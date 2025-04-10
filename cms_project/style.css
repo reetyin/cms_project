@@ -22,6 +22,17 @@ header nav a:hover {
     text-decoration: underline;
 }
 
+.user-link {
+    text-decoration: underline;
+}
+
+.nav-link {
+    display: inline-block; /* 避免整块换行 */
+    padding: 0.5rem 1rem;
+}
+
+
+
  footer {
     background-color: #333;
     color: white;
@@ -37,44 +48,23 @@ footer p {
     font-size: 14px;
 }
 
-/* 主页学校卡片图片 */
-.school-card img {
-    width: 100%;
-    height: 200px;
-    object-fit: cover;
+.checkbox-group {
+    margin: 10px 0;
 }
 
-/* 详情页学校图片 */
-.school-detail img {
-    width: 100%;
-    max-width: 600px;
-    height: auto;
-    object-fit: contain;
+.checkbox-group input[type="checkbox"] {
+    margin-right: 5px;
 }
 
-/* 学校详情页图片样式 */
-.school-image-container {
-    max-width: 100%;
-    margin: 0 auto;
+.checkbox-group label {
+    color: #dc3545;
+    cursor: pointer;
 }
 
-.school-detail-image {
-    max-width: 100%;
-    max-height: 500px;
-    width: auto;
-    height: auto;
-    object-fit: contain;
-    display: block;
-    margin: 0 auto;
-}
-
-/* 描述内容样式 */
-.description-content {
-    line-height: 1.6;
-}
-
-.description-content img {
-    max-width: 100%;
-    height: auto;
-    margin: 1rem 0;
+.current-image {
+    margin: 10px 0;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #f8f9fa;
 }

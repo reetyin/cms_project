@@ -42,31 +42,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['user_id'])) {
         $_SESSION['temp_comment'] = $content;
     } else {
         try {
-            // 添加错误日志
-            error_log("Submitting comment: school_id=$school_id, user_id={$_SESSION['user_id']}, content=$content");
-            
             $stmt = $pdo->prepare("INSERT INTO comments (school_id, user_id, content, is_approved) 
-                                  VALUES (?, ?, ?, ?)");
+                                  VALUES (?, ?, ?, 1)");
             
-            // 管理员的评论自动审核通过
-            $is_approved = isset($_SESSION['is_admin']) && $_SESSION['is_admin'] == 1 ? 1 : 0;
-            
-            if ($stmt->execute([$school_id, $_SESSION['user_id'], $content, $is_approved])) {
-                $comment_success = "Comment submitted successfully!" . 
-                                 (!$is_approved ? " Your comment will be visible after moderation." : "");
+            if ($stmt->execute([$school_id, $_SESSION['user_id'], $content])) {
+                $comment_success = "Comment submitted successfully!";
                 unset($_SESSION['temp_comment']);
-                // 添加成功日志
-                error_log("Comment submitted successfully");
             } else {
                 $comment_error = "Error submitting comment";
-                error_log("Error submitting comment: " . print_r($stmt->errorInfo(), true));
             }
         } catch (PDOException $e) {
             $comment_error = "Error submitting comment";
             error_log("PDO Error: " . $e->getMessage());
         }
     }
-    // 清除验证码
     unset($_SESSION['captcha']);
 }
 
@@ -75,7 +64,7 @@ $stmt = $pdo->prepare("
     SELECT c.*, u.username 
     FROM comments c 
     LEFT JOIN users u ON c.user_id = u.id 
-    WHERE c.school_id = ? AND c.is_approved = 1 
+    WHERE c.school_id = ? AND c.is_approved = 1
     ORDER BY c.created_at DESC
 ");
 $stmt->execute([$school_id]);

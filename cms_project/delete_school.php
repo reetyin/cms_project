@@ -1,30 +1,59 @@
 <?php
+require_once 'config.php';
 session_start();
-require 'config.php';
-check_admin();
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id'])) {
-    $id = (int)$_POST['id'];
-    
-    try {
-        // 删除相关的评论
-        $stmt = $pdo->prepare("DELETE FROM comments WHERE school_id = ?");
-        $stmt->execute([$id]);
-        
-        // 删除分类关联
-        $stmt = $pdo->prepare("DELETE FROM school_categories WHERE school_id = ?");
-        $stmt->execute([$id]);
-        
-        // 删除学校
-        $stmt = $pdo->prepare("DELETE FROM schools WHERE id = ?");
-        $stmt->execute([$id]);
-        
-        $_SESSION['success'] = "School deleted successfully";
-    } catch (PDOException $e) {
-        $_SESSION['error'] = "Error deleting school";
-    }
+// Check if logged in and is admin
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['is_admin'])) {
+    header("Location: login.php");
+    exit();
 }
 
-header('Location: schools.php');
-exit;
-?>
+if (isset($_GET['id'])) {
+    $school_id = $_GET['id'];
+    
+    try {
+        // Start transaction
+        $pdo->beginTransaction();
+        
+        // First, get the image filename
+        $stmt = $pdo->prepare("
+            SELECT i.filename 
+            FROM schools s 
+            LEFT JOIN images i ON s.image_id = i.id 
+            WHERE s.id = ?
+        ");
+        $stmt->execute([$school_id]);
+        $school = $stmt->fetch();
+        
+        // Delete the school record
+        $stmt = $pdo->prepare("DELETE FROM schools WHERE id = ?");
+        $stmt->execute([$school_id]);
+        
+        // If there was an image, delete it from the images table and file system
+        if ($school && $school['filename']) {
+            // Delete from images table
+            $stmt = $pdo->prepare("DELETE FROM images WHERE filename = ?");
+            $stmt->execute([$school['filename']]);
+            
+            // Delete file from uploads directory
+            $file_path = 'uploads/' . $school['filename'];
+            if (file_exists($file_path)) {
+                unlink($file_path);
+            }
+        }
+        
+        // Commit transaction
+        $pdo->commit();
+        
+        header("Location: schools.php");
+        exit();
+        
+    } catch (PDOException $e) {
+        // Rollback transaction on error
+        $pdo->rollBack();
+        die("Error deleting school: " . $e->getMessage());
+    }
+} else {
+    header("Location: schools.php");
+    exit();
+}

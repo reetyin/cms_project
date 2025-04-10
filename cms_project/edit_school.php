@@ -51,7 +51,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $content = $_POST['content'] ?? '';
     $application_fee = floatval($_POST['application_fee'] ?? 0);
     $website = trim($_POST['website'] ?? '');
-    $website = preg_replace('#^https?://#', '', $website);
+    
+    // 确保网址以 https:// 开头
+    if (!empty($website)) {
+        $website = 'https://' . $website;
+    }
     
     // 修改验证
     if (empty($title) || empty($location) || empty($school_type)) {
@@ -60,19 +64,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $pdo->beginTransaction();
             
+            // 处理图片删除
+            if (isset($_POST['remove_image']) && $_POST['remove_image'] == '1') {
+                // 获取旧图片信息
+                $stmt = $pdo->prepare("SELECT filename FROM images WHERE id = ?");
+                $stmt->execute([$school['image_id']]);
+                $old_image = $stmt->fetch();
+                
+                if ($old_image) {
+                    // 删除物理文件
+                    $old_file = 'uploads/' . $old_image['filename'];
+                    if (file_exists($old_file)) {
+                        unlink($old_file);
+                    }
+                    
+                    // 删除图片记录
+                    $stmt = $pdo->prepare("DELETE FROM images WHERE id = ?");
+                    $stmt->execute([$school['image_id']]);
+                    
+                    // 设置 image_id 为 null
+                    $image_id = null;
+                }
+            }
+            
             // 处理新图片上传
             $image_id = $school['image_id'];
-            if (!empty($_FILES['image']['name'])) {
-                $file = $_FILES['image'];
+            if (!empty($_FILES['image']['name'][0])) {
+                $files = $_FILES['image'];
+                $file = [
+                    'name' => $files['name'][0],
+                    'type' => $files['type'][0],
+                    'tmp_name' => $files['tmp_name'][0],
+                    'error' => $files['error'][0],
+                    'size' => $files['size'][0]
+                ];
+                
                 $original_name = $file['name'];
                 $mime_type = $file['type'];
                 $filename = uniqid() . '_' . preg_replace("/[^a-zA-Z0-9.]/", "", $original_name);
-                
-                // 检查文件类型
-                $allowed_types = ['image/jpeg', 'image/png', 'image/jpg'];
-                if (!in_array($mime_type, $allowed_types)) {
-                    throw new Exception("Only JPG, JPEG & PNG files are allowed");
-                }
                 
                 // 移动文件到上传目录
                 $target_dir = "uploads/";
@@ -90,14 +119,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ");
                     $stmt->execute([$filename, $original_name, $mime_type]);
                     $image_id = $pdo->lastInsertId();
-                    
-                    // 如果有旧图片，删除旧图片文件
-                    if ($school['filename']) {
-                        $old_file = $target_dir . $school['filename'];
-                        if (file_exists($old_file)) {
-                            unlink($old_file);
-                        }
-                    }
                 }
             }
             
@@ -232,24 +253,29 @@ $categories = $pdo->query("SELECT * FROM categories ORDER BY name")->fetchAll();
                                 <div class="input-group">
                                     <span class="input-group-text">https://</span>
                                     <input type="text" class="form-control" id="website" name="website" 
-                                           value="<?php echo htmlspecialchars($school['website']); ?>" 
+                                           value="<?php echo str_replace(['http://', 'https://'], '', htmlspecialchars($school['website'])); ?>" 
                                            placeholder="example.com">
                                 </div>
-                                <div class="form-text">Enter domain name without http:// or https://</div>
                             </div>
 
-                            <!-- Image Upload Field (移到 Description 上面) -->
+                            <!-- Image Upload Field -->
                             <div class="mb-3">
-                                <label class="form-label">Current Image</label>
-                                <?php if ($school['filename']): ?>
+                                <label for="image" class="form-label">School Image (Optional)</label>
+                                <?php if (!empty($school['filename'])): ?>
                                     <div class="mb-2">
                                         <img src="uploads/<?php echo htmlspecialchars($school['filename']); ?>" 
                                              class="img-thumbnail" style="max-width: 200px" 
                                              alt="<?php echo htmlspecialchars($school['title']); ?>">
+                                        <div class="mt-2">
+                                            <button type="button" class="btn btn-danger btn-sm" 
+                                                    onclick="markImageForRemoval()">
+                                                Remove Image
+                                            </button>
+                                        </div>
                                     </div>
+                                    <input type="hidden" name="remove_image" id="remove_image" value="0">
                                 <?php endif; ?>
-                                <label for="image" class="form-label">Upload New Image (Optional)</label>
-                                <input type="file" class="form-control" id="image" name="image" accept="image/*">
+                                <input type="file" class="form-control" id="image" name="image[]" multiple>
                             </div>
 
                             <!-- Description Field (移到底部) -->
@@ -270,5 +296,59 @@ $categories = $pdo->query("SELECT * FROM categories ORDER BY name")->fetchAll();
 
     <!-- Include Footer -->
 <?php include 'footer.php'; ?>
+
+<!-- 在 </body> 标签前添加 JavaScript -->
+<script>
+function markImageForRemoval() {
+    if (confirm('Are you sure you want to remove this image? Click Update School to confirm.')) {
+        document.getElementById('remove_image').value = '1';
+        const currentImage = document.querySelector('.mb-2');
+        if (currentImage) {
+            currentImage.style.display = 'none';
+        }
+    }
+}
+
+// 添加文件验证
+document.getElementById('image').addEventListener('change', function(e) {
+    const files = e.target.files;
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    
+    for (let file of files) {
+        if (!allowedTypes.includes(file.type)) {
+            alert('Only JPG, PNG, GIF and WebP images are allowed');
+            this.value = '';
+            return;
+        }
+    }
+});
+
+// 添加拖放功能
+const dropZone = document.getElementById('image');
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+});
+
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const files = e.dataTransfer.files;
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    
+    for (let file of files) {
+        if (!allowedTypes.includes(file.type)) {
+            alert('Only JPG, PNG, GIF and WebP images are allowed');
+            return;
+        }
+    }
+    
+    const dataTransfer = new DataTransfer();
+    for (let file of files) {
+        dataTransfer.items.add(file);
+    }
+    dropZone.files = dataTransfer.files;
+});
+</script>
 </body>
 </html>

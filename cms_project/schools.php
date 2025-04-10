@@ -41,25 +41,42 @@ include 'header.php';
                     <th>Name</th>
                     <th>Location</th>
                     <th>Type</th>
-                    <th>Application Fee</th>
+                    <th>Application&nbsp;Fee</th>
+                    <th>Website</th>
+                    <th>Created At</th>
+                    <th>Updated At</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($schools as $school): ?>
                     <tr>
-                        <td style="width: 100px;">
-                            <?php if ($school['filename']): ?>
+                        <td style="width: 160px; height: 50px;">
+                            <?php if (!empty($school['filename'])): ?>
                                 <img src="uploads/<?php echo htmlspecialchars($school['filename']); ?>" 
                                      class="img-thumbnail" 
-                                     style="width: 80px; height: 80px; object-fit: cover;"
+                                     style="width: 160px; height: 50px; object-fit: cover;"
                                      alt="<?php echo htmlspecialchars($school['title']); ?>">
+                            <?php else: ?>
+                                <img src="images/default.jpg" 
+                                     class="img-thumbnail"
+                                     style="width: 160px; height: 80px; object-fit: cover;"
+                                     alt="Default Image">
                             <?php endif; ?>
                         </td>
                         <td><?php echo htmlspecialchars($school['title']); ?></td>
                         <td><?php echo htmlspecialchars($school['location']); ?></td>
                         <td><?php echo htmlspecialchars($school['school_type_name']); ?></td>
                         <td>$<?php echo number_format($school['application_fee'], 2); ?></td>
+                        <td>
+                            <?php if (!empty($school['website'])): ?>
+                                <a href="<?php echo htmlspecialchars($school['website']); ?>" target="_blank">
+                                    <?php echo htmlspecialchars($school['website']); ?>
+                                </a>
+                            <?php endif; ?>
+                        </td>
+                        <td><?php echo date('Y-m-d H:i', strtotime($school['created_at'])); ?></td>
+                        <td><?php echo date('Y-m-d H:i', strtotime($school['updated_at'])); ?></td>
                         <td>
                             <a href="edit_school.php?id=<?php echo $school['id']; ?>" 
                                class="btn btn-sm btn-primary">Edit</a>

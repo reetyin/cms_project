@@ -30,6 +30,9 @@ if (session_status() === PHP_SESSION_NONE) {
                             <a class="nav-link" href="categories.php">Categories</a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link" href="users.php">User Management</a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="moderate_comments.php">
                                 Moderate Comments
                                 <?php
@@ -54,8 +57,11 @@ if (session_status() === PHP_SESSION_NONE) {
                 <ul class="navbar-nav">
                     <?php if (isset($_SESSION['user_id'])): ?>
                         <li class="nav-item">
-                            <span class="nav-link">Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?></span>
+                            <a class="nav-link" href="user_profile.php">
+                                Welcome, <span class="user-link"><?php echo htmlspecialchars($_SESSION['username']); ?></span>
+                            </a>
                         </li>
+
                         <li class="nav-item">
                             <a class="nav-link" href="logout.php">Logout</a>
                         </li>

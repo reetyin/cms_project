@@ -8,48 +8,45 @@ $params = [];
 
 // Search by name
 if (!empty($_GET['search'])) {
-    $where_conditions[] = "(s.title LIKE ? OR s.location LIKE ?)";
-    $params[] = "%{$_GET['search']}%";
-    $params[] = "%{$_GET['search']}%";
+    $where_conditions[] = "s.title LIKE ?";
+    $params[] = "%" . $_GET['search'] . "%";
 }
 
 // Filter by school type
 if (!empty($_GET['type'])) {
-    $where_conditions[] = "c.name = ?";
+    $where_conditions[] = "s.school_type = ?";
     $params[] = $_GET['type'];
 }
 
 // Filter by location
 if (!empty($_GET['location'])) {
-    $where_conditions[] = "location LIKE ?";
+    $where_conditions[] = "s.location LIKE ?";
     $params[] = "%" . $_GET['location'] . "%";
 }
 
 // Build the query
-$where_clause = !empty($where_conditions) ? "WHERE " . implode(" AND ", $where_conditions) : "";
-$sql = "SELECT s.*, i.filename, c.name as school_type_name 
+$sql = "SELECT s.*, i.filename, c.name as category_name 
         FROM schools s 
         LEFT JOIN images i ON s.image_id = i.id 
-        LEFT JOIN categories c ON s.school_type = c.id 
-        $where_clause 
-        ORDER BY s.created_at DESC";
+        LEFT JOIN categories c ON s.school_type = c.id";
+
+if (!empty($where_conditions)) {
+    $sql .= " WHERE " . implode(" AND ", $where_conditions);
+}
+$sql .= " ORDER BY s.created_at DESC";
 
 // Execute the query
-try {
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    $schools = $stmt->fetchAll();
-} catch (PDOException $e) {
-    $error = "Error loading schools: " . $e->getMessage();
-}
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
+$schools = $stmt->fetchAll();
 
-// 获取所有学校类型
-$types_query = "SELECT DISTINCT school_type FROM schools ORDER BY school_type";
-$school_types = $pdo->query($types_query)->fetchAll(PDO::FETCH_COLUMN);
+// Get all school types from categories table
+$types_query = "SELECT id, name FROM categories ORDER BY name";
+$school_types = $pdo->query($types_query)->fetchAll();
 
-// 获取所有分类
-$categories_query = "SELECT * FROM categories ORDER BY name";
-$categories = $pdo->query($categories_query)->fetchAll();
+// Get all locations
+$locations_query = "SELECT DISTINCT location FROM schools WHERE location IS NOT NULL ORDER BY location";
+$locations = $pdo->query($locations_query)->fetchAll(PDO::FETCH_COLUMN);
 
 // 生成相反的排序顺序
 $reverse_order = $order === 'asc' ? 'desc' : 'asc';
@@ -90,17 +87,26 @@ $reverse_order = $order === 'asc' ? 'desc' : 'asc';
             <div class="col-md-3">
                 <select name="type" class="form-select">
                     <option value="">All School Types</option>
-                    <option value="Public" <?php echo (isset($_GET['type']) && $_GET['type'] === 'Public') ? 'selected' : ''; ?>>Public</option>
-                    <option value="Private" <?php echo (isset($_GET['type']) && $_GET['type'] === 'Private') ? 'selected' : ''; ?>>Private</option>
-                    <option value="Charter" <?php echo (isset($_GET['type']) && $_GET['type'] === 'Charter') ? 'selected' : ''; ?>>Charter</option>
+                    <?php foreach ($school_types as $type): ?>
+                        <option value="<?php echo $type['id']; ?>" 
+                                <?php echo (isset($_GET['type']) && $_GET['type'] == $type['id']) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($type['name']); ?>
+                        </option>
+                    <?php endforeach; ?>
                 </select>
             </div>
 
             <!-- Location Filter -->
             <div class="col-md-3">
-                <input type="text" name="location" class="form-control" 
-                       placeholder="Filter by location" 
-                       value="<?php echo htmlspecialchars($_GET['location'] ?? ''); ?>">
+                <select name="location" class="form-select">
+                    <option value="">All Locations</option>
+                    <?php foreach ($locations as $location): ?>
+                        <option value="<?php echo htmlspecialchars($location); ?>"
+                                <?php echo (isset($_GET['location']) && $_GET['location'] == $location) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($location); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
 
             <!-- Submit Button -->
@@ -126,25 +132,34 @@ $reverse_order = $order === 'asc' ? 'desc' : 'asc';
                         <th>Name</th>
                         <th>Location</th>
                         <th>Type</th>
-                        <th>Application Fee</th>
-                        <th>Action</th>
+                        <th>Application&nbsp;Fee</th>
+                        <th>Website</th>
+                        <th>Updated At</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($schools as $school): ?>
                         <tr>
-                            <td style="width: 100px;">
+                            <td style="width: 160px; height: 50px;">
                                 <?php if ($school['filename']): ?>
                                     <img src="uploads/<?php echo htmlspecialchars($school['filename']); ?>" 
                                          class="img-thumbnail" 
-                                         style="width: 80px; height: 80px; object-fit: cover;"
+                                         style="width: 160px; height: 50px; object-fit: cover;"
                                          alt="<?php echo htmlspecialchars($school['title']); ?>">
                                 <?php endif; ?>
                             </td>
                             <td><?php echo htmlspecialchars($school['title']); ?></td>
                             <td><?php echo htmlspecialchars($school['location']); ?></td>
-                            <td><?php echo htmlspecialchars($school['school_type_name']); ?></td>
+                            <td><?php echo htmlspecialchars($school['category_name']); ?></td>
                             <td>$<?php echo number_format($school['application_fee'], 2); ?></td>
+                            <td>
+                                <?php if (!empty($school['website'])): ?>
+                                    <a href="<?php echo htmlspecialchars($school['website']); ?>" target="_blank">
+                                    <?php echo htmlspecialchars($school['website']); ?>
+                                </a>
+                                <?php endif; ?>
+                            </td>
+                            <td><?php echo date('Y-m-d H:i', strtotime($school['updated_at'])); ?></td>
                             <td>
                                 <a href="school_detail.php?id=<?php echo $school['id']; ?>" 
                                    class="btn btn-primary btn-sm">View Details</a>

@@ -38,18 +38,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Process image upload if no errors
     if (empty($error)) {
-        $file = $_FILES['image'];
-        $original_name = $file['name'];
-        $mime_type = $file['type'];
-        $filename = uniqid() . '_' . preg_replace("/[^a-zA-Z0-9.]/", "", $original_name);
-        
-        // Check file type
-        $allowed_types = ['image/jpeg', 'image/png', 'image/jpg'];
-        if (!in_array($mime_type, $allowed_types)) {
-            $error = "Only JPG, JPEG & PNG files are allowed";
-        } else {
-            try {
-                $pdo->beginTransaction();
+        try {
+            $pdo->beginTransaction();
+            
+            // Generate slug
+            $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title)));
+            
+            // Insert school data first
+            $stmt = $pdo->prepare("
+                INSERT INTO schools (title, location, school_type, content, 
+                                  application_fee, website, user_id, slug, created_at, updated_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+            ");
+            
+            // 移除 http:// 或 https:// 前缀
+            $website = preg_replace('#^https?://#', '', $website);
+            
+            $stmt->execute([
+                $title, 
+                $location, 
+                $school_type, 
+                $content, 
+                $application_fee, 
+                $website,
+                $_SESSION['user_id'],
+                $slug
+            ]);
+            
+            $school_id = $pdo->lastInsertId();
+            
+            // Process image if uploaded
+            if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
+                $file = $_FILES['image'];
+                $original_name = $file['name'];
+                $mime_type = $file['type'];
+                $filename = uniqid() . '_' . preg_replace("/[^a-zA-Z0-9.]/", "", $original_name);
                 
                 // Create uploads directory if it doesn't exist
                 $target_dir = "uploads/";
@@ -68,54 +91,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->execute([$filename, $original_name, $mime_type]);
                     $image_id = $pdo->lastInsertId();
                     
-                    // Generate slug
-                    $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title)));
-                    
-                    // Insert school data
-                    $stmt = $pdo->prepare("
-                        INSERT INTO schools (title, location, school_type, content, image_id, 
-                                          application_fee, website, user_id, slug, created_at, updated_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-                    ");
-                    
-                    // 移除 http:// 或 https:// 前缀
-                    $website = preg_replace('#^https?://#', '', $website);
-                    
-                    $stmt->execute([
-                        $title, 
-                        $location, 
-                        $school_type, 
-                        $content, 
-                        $image_id,
-                        $application_fee, 
-                        $website,
-                        $_SESSION['user_id'],
-                        $slug
-                    ]);
-                    
-                    $school_id = $pdo->lastInsertId();
-                    
-                    // Add category association if selected
-                    if ($category_id > 0) {
-                        $stmt = $pdo->prepare("INSERT INTO school_categories (school_id, category_id) VALUES (?, ?)");
-                        $stmt->execute([$school_id, $category_id]);
-                    }
-                    
-                    $pdo->commit();
-                    $_SESSION['success'] = "School added successfully";
-                    header('Location: schools.php');
-                    exit;
-                } else {
-                    throw new Exception("Error uploading file");
+                    // Update school with image_id
+                    $stmt = $pdo->prepare("UPDATE schools SET image_id = ? WHERE id = ?");
+                    $stmt->execute([$image_id, $school_id]);
                 }
-                
-            } catch (Exception $e) {
-                $pdo->rollBack();
-                if (file_exists($target_file)) {
-                    unlink($target_file); // Delete uploaded file if error occurs
-                }
-                $error = "Error: " . $e->getMessage();
             }
+            
+            // Add category association if selected
+            if ($category_id > 0) {
+                $stmt = $pdo->prepare("INSERT INTO school_categories (school_id, category_id) VALUES (?, ?)");
+                $stmt->execute([$school_id, $category_id]);
+            }
+            
+            $pdo->commit();
+            $_SESSION['success'] = "School added successfully";
+            header('Location: schools.php');
+            exit;
+            
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            if (isset($target_file) && file_exists($target_file)) {
+                unlink($target_file); // Delete uploaded file if error occurs
+            }
+            $error = "Error: " . $e->getMessage();
         }
     }
 }
@@ -232,8 +230,8 @@ $categories = $pdo->query("SELECT * FROM categories ORDER BY name")->fetchAll();
 
                             <!-- Image Upload Field -->
                             <div class="mb-3">
-                                <label for="image" class="form-label">Upload Image (Optional)</label>
-                                <input type="file" class="form-control" id="image" name="image" accept="image/*">
+                                <label for="image" class="form-label">School Image (Optional)</label>
+                                <input type="file" class="form-control" id="image" name="image[]" multiple>
                             </div>
 
                             <!-- Application Fee Field -->
@@ -268,5 +266,49 @@ $categories = $pdo->query("SELECT * FROM categories ORDER BY name")->fetchAll();
     </div>
     <!-- Include Footer -->
 <?php include 'footer.php'; ?>
+
+<!-- 在 </body> 标签前添加 JavaScript -->
+<script>
+// 添加文件验证
+document.getElementById('image').addEventListener('change', function(e) {
+    const files = e.target.files;
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    
+    for (let file of files) {
+        if (!allowedTypes.includes(file.type)) {
+            alert('Only JPG, PNG, GIF and WebP images are allowed');
+            this.value = '';
+            return;
+        }
+    }
+});
+
+// 添加拖放功能
+const dropZone = document.getElementById('image');
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+});
+
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const files = e.dataTransfer.files;
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    
+    for (let file of files) {
+        if (!allowedTypes.includes(file.type)) {
+            alert('Only JPG, PNG, GIF and WebP images are allowed');
+            return;
+        }
+    }
+    
+    const dataTransfer = new DataTransfer();
+    for (let file of files) {
+        dataTransfer.items.add(file);
+    }
+    dropZone.files = dataTransfer.files;
+});
+</script>
 </body>
 </html>

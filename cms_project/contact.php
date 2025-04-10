@@ -1,6 +1,5 @@
 <?php include('header.php'); ?>
 
-<main>
     <h2>Contact Us</h2>
     
     <section>
