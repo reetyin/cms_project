@@ -13,7 +13,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $password = trim($_POST['password'] ?? '');
-    $is_admin = $_POST['is_admin'] ?? 0;
     
     try {
         $pdo->beginTransaction();
@@ -37,24 +36,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
             $stmt = $pdo->prepare("
                 UPDATE users 
-                SET username = ?, email = ?, password = ?, is_admin = ? 
+                SET username = ?, email = ?, password = ? 
                 WHERE id = ?
             ");
-            $stmt->execute([$username, $email, $hashed_password, $is_admin, $userId]);
+            $stmt->execute([$username, $email, $hashed_password, $userId]);
+            $message = "User information and password updated successfully!";
         } else {
             $stmt = $pdo->prepare("
                 UPDATE users 
-                SET username = ?, email = ?, is_admin = ? 
+                SET username = ?, email = ? 
                 WHERE id = ?
             ");
-            $stmt->execute([$username, $email, $is_admin, $userId]);
+            $stmt->execute([$username, $email, $userId]);
+            $message = "User information updated successfully!";
         }
         
         $pdo->commit();
-        echo json_encode(['success' => true]);
+        
+        // 确保返回正确的 JSON 响应
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => true,
+            'message' => $message
+        ]);
+        exit();
         
     } catch (Exception $e) {
         $pdo->rollBack();
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        
+        // 确保返回正确的 JSON 响应
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => false,
+            'message' => 'Error: ' . $e->getMessage()
+        ]);
+        exit();
     }
+} else {
+    // 如果不是 POST 请求，返回错误
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => false,
+        'message' => 'Invalid request method'
+    ]);
+    exit();
 } 

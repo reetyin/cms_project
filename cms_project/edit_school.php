@@ -1,6 +1,11 @@
 <?php
 session_start();
 require 'config.php';
+require 'image_helper.php'; // 添加图片处理辅助文件
+
+// 开启错误报告，方便调试
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
 // 移除调试信息
 check_admin();
@@ -85,40 +90,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // 设置 image_id 为 null
                     $image_id = null;
                 }
+            } else {
+                // 如果没有删除图片，保留原来的 image_id
+                $image_id = $school['image_id'];
             }
             
             // 处理新图片上传
-            $image_id = $school['image_id'];
             if (!empty($_FILES['image']['name'][0])) {
-                $files = $_FILES['image'];
-                $file = [
-                    'name' => $files['name'][0],
-                    'type' => $files['type'][0],
-                    'tmp_name' => $files['tmp_name'][0],
-                    'error' => $files['error'][0],
-                    'size' => $files['size'][0]
-                ];
+                // 输出调试信息
+                echo "<pre>";
+                echo "开始处理图片上传...\n";
+                echo "文件信息: ";
+                print_r($_FILES['image']);
+                echo "</pre>";
                 
-                $original_name = $file['name'];
-                $mime_type = $file['type'];
-                $filename = uniqid() . '_' . preg_replace("/[^a-zA-Z0-9.]/", "", $original_name);
-                
-                // 移动文件到上传目录
-                $target_dir = "uploads/";
-                if (!file_exists($target_dir)) {
-                    mkdir($target_dir, 0777, true);
-                }
-                
-                $target_file = $target_dir . $filename;
-                
-                if (move_uploaded_file($file['tmp_name'], $target_file)) {
-                    // 插入新图片记录
-                    $stmt = $pdo->prepare("
-                        INSERT INTO images (filename, original_name, mime_type, created_at) 
-                        VALUES (?, ?, ?, NOW())
-                    ");
-                    $stmt->execute([$filename, $original_name, $mime_type]);
-                    $image_id = $pdo->lastInsertId();
+                // 检查文件是否有效
+                if ($_FILES['image']['error'][0] !== UPLOAD_ERR_OK) {
+                    $error = "文件上传失败，错误代码: " . $_FILES['image']['error'][0];
+                    echo "<pre>$error</pre>";
+                } else {
+                    // 使用多文件处理函数处理上传的图片
+                    $target_dir = "uploads/";
+                    
+                    // 确保目标目录存在
+                    if (!file_exists($target_dir)) {
+                        mkdir($target_dir, 0777, true);
+                        echo "<pre>创建目标目录: $target_dir</pre>";
+                    }
+                    
+                    // 直接使用resize_image函数处理图片
+                    $temp_path = $_FILES['image']['tmp_name'][0];
+                    $original_name = $_FILES['image']['name'][0];
+                    $mime_type = $_FILES['image']['type'][0];
+                    
+                    // 生成唯一文件名
+                    $filename = uniqid() . '_' . preg_replace("/[^a-zA-Z0-9.]/", "", $original_name);
+                    $target_path = $target_dir . $filename;
+                    
+                    echo "<pre>临时文件路径: $temp_path</pre>";
+                    echo "<pre>目标文件路径: $target_path</pre>";
+                    
+                    // 直接调用resize_image函数
+                    if (resize_image($temp_path, $target_path, 800, 600, 80)) {
+                        echo "<pre>图片调整大小成功</pre>";
+                        
+                        // 插入新图片记录
+                        $stmt = $pdo->prepare("
+                            INSERT INTO images (filename, original_name, mime_type, created_at) 
+                            VALUES (?, ?, ?, NOW())
+                        ");
+                        $stmt->execute([$filename, $original_name, $mime_type]);
+                        $image_id = $pdo->lastInsertId();
+                        
+                        echo "<pre>图片记录已插入，ID: $image_id</pre>";
+                    } else {
+                        $error = "图片处理失败";
+                        echo "<pre>$error</pre>";
+                    }
                 }
             }
             

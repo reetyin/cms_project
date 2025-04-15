@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config.php';
+require 'image_helper.php'; // 添加图片处理辅助文件
 check_admin();
 
 // Remove debug output
@@ -69,20 +70,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Process image if uploaded
             if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
-                $file = $_FILES['image'];
-                $original_name = $file['name'];
-                $mime_type = $file['type'];
-                $filename = uniqid() . '_' . preg_replace("/[^a-zA-Z0-9.]/", "", $original_name);
-                
-                // Create uploads directory if it doesn't exist
+                // 使用多文件处理函数处理上传的图片
                 $target_dir = "uploads/";
-                if (!file_exists($target_dir)) {
-                    mkdir($target_dir, 0777, true);
-                }
+                $result = process_multiple_images($_FILES['image'], $target_dir, 800, 600, 80);
                 
-                $target_file = $target_dir . $filename;
-                
-                if (move_uploaded_file($file['tmp_name'], $target_file)) {
+                if ($result['success']) {
+                    $filename = $result['filename'];
+                    $original_name = $_FILES['image']['name'][0];
+                    $mime_type = $_FILES['image']['type'][0];
+                    
                     // Insert image record
                     $stmt = $pdo->prepare("
                         INSERT INTO images (filename, original_name, mime_type, created_at) 
@@ -94,6 +90,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Update school with image_id
                     $stmt = $pdo->prepare("UPDATE schools SET image_id = ? WHERE id = ?");
                     $stmt->execute([$image_id, $school_id]);
+                } else {
+                    // 记录图片处理错误，但不中断整个流程
+                    $error = "Image processing error: " . $result['error'];
                 }
             }
             

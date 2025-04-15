@@ -29,17 +29,24 @@ try {
 <body>
     <?php include 'header.php'; ?>
 
-    <div class="container mt-4">
-        <h2>User Management</h2>
-        
-        <?php if (isset($error)): ?>
-            <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
-        <?php endif; ?>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">User Management</h2>
+    <button type="button" class="btn btn-success" onclick="showAddUserModal()">
+        Add New User
+    </button>
+</div>
 
-        <!-- Add User Button -->
-        <button type="button" class="btn btn-success mb-3" onclick="showAddUserModal()">
-            Add New User
-        </button>
+<?php if (isset($error)): ?>
+    <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
+<?php endif; ?>
+
+<?php if (isset($_SESSION['update_message'])): ?>
+    <div class="alert alert-<?php echo $_SESSION['update_message']['type'] === 'success' ? 'success' : 'danger'; ?> alert-dismissible fade show" role="alert">
+        <?php echo $_SESSION['update_message']['message']; ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    <?php unset($_SESSION['update_message']); ?>
+<?php endif; ?>
 
         <div class="table-responsive">
             <table class="table table-striped">
@@ -187,7 +194,8 @@ try {
     }
 
     function updateUser() {
-        const formData = new FormData(document.getElementById('editUserForm'));
+        const form = document.getElementById('editUserForm');
+        const formData = new FormData(form);
         
         fetch('update_user.php', {
             method: 'POST',
@@ -200,6 +208,10 @@ try {
             } else {
                 alert(data.message || 'Error updating user');
             }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error updating user: ' + error.message);
         });
     }
 

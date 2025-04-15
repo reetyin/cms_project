@@ -1,53 +1,73 @@
 /* style.css */
 
- header {
-    background-color: #333;
-    color: white;
-    padding: 20px;
-    text-align: center;
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding-top: 56px; /* Space for fixed navbar */
 }
 
-header nav {
-    margin: 10px 0;
+nav.navbar {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    z-index: 1000;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-header nav a {
-    color: white;
-    text-decoration: none;
-    margin: 0 15px;
-    font-size: 18px;
+.container.mt-4 {
+    margin-top: 20px; /* Adjusted spacing */
+    flex: 1; /* Makes the container grow to push footer down */
 }
 
-header nav a:hover {
-    text-decoration: underline;
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.4rem;
 }
 
 .user-link {
-    text-decoration: underline;
+    font-weight: 500;
+    color: #fff;
 }
 
-.nav-link {
-    display: inline-block; /* 避免整块换行 */
-    padding: 0.5rem 1rem;
+/* Improved navbar styling */
+.navbar-dark .navbar-nav .nav-link {
+    color: rgba(255,255,255,0.8);
+    transition: color 0.2s;
+    padding: 0.6rem 1rem;
 }
 
+.navbar-dark .navbar-nav .nav-link:hover {
+    color: #fff;
+}
 
+.navbar-dark .navbar-nav .active > .nav-link,
+.navbar-dark .navbar-nav .nav-link.active {
+    color: #fff;
+    font-weight: 500;
+}
 
- footer {
-    background-color: #333;
-    color: white;
-    padding: 20px;
-    text-align: center;
-    position: fixed;
-    bottom: 0;
-    width: 100%;
+/* Badge styling */
+.navbar-dark .navbar-nav .badge {
+    position: relative;
+    top: -1px;
+    margin-left: 5px;
+}
+
+/* Footer styling */
+footer {
+    background-color: #212529;
+    color: rgba(255,255,255,0.8);
+    padding: 1.5rem 0;
+    margin-top: auto; /* Push footer to bottom */
 }
 
 footer p {
     margin: 0;
-    font-size: 14px;
+    font-size: 0.9rem;
 }
 
+/* Other styling */
 .checkbox-group {
     margin: 10px 0;
 }
@@ -67,4 +87,34 @@ footer p {
     border: 1px solid #ddd;
     border-radius: 4px;
     background-color: #f8f9fa;
+}
+
+/* Card styling improvements */
+.card {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    margin-bottom: 1.5rem;
+    border: none;
+    border-radius: 0.375rem;
+}
+
+.card-header {
+    background-color: rgba(0,0,0,0.03);
+    border-bottom: 1px solid rgba(0,0,0,0.125);
+    padding: 0.75rem 1.25rem;
+}
+
+.card-title {
+    margin-bottom: 0;
+    font-weight: 500;
+}
+
+/* Add responsive adjustments */
+@media (max-width: 991.98px) {
+    .navbar-nav {
+        padding: 0.5rem 0;
+    }
+    
+    .navbar-dark .navbar-nav .nav-link {
+        padding: 0.5rem 0;
+    }
 }
